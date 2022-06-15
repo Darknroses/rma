@@ -10,11 +10,14 @@ setuptools.setup(
     install_requires=[
         'odoo13-addon-product_warranty',
         'odoo13-addon-rma',
+        'odoo13-addon-rma_delivery',
         'odoo13-addon-rma_sale',
+        'odoo13-addon-rma_sale_mrp',
         'odoo13-addon-website_rma',
     ],
     classifiers=[
         'Programming Language :: Python',
         'Framework :: Odoo',
+        'Framework :: Odoo :: 13.0',
     ]
 )

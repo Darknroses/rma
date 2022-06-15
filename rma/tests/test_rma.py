@@ -2,14 +2,18 @@
 # License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl).
 
 from odoo.exceptions import UserError, ValidationError
-from odoo.tests import Form, SavepointCase, tagged
+from odoo.tests import Form, SavepointCase, new_test_user, users
 
 
-@tagged("post_install", "-at_install")
 class TestRma(SavepointCase):
     @classmethod
     def setUpClass(cls):
         super(TestRma, cls).setUpClass()
+        cls.user_rma = new_test_user(
+            cls.env,
+            login="user_rma",
+            groups="rma.rma_group_user_own,stock.group_stock_user",
+        )
         cls.res_partner = cls.env["res.partner"]
         cls.product_product = cls.env["product.product"]
         cls.company = cls.env.user.company_id
@@ -44,6 +48,20 @@ class TestRma(SavepointCase):
                 "type": "invoice",
             }
         )
+        cls.partner_shipping = cls.res_partner.create(
+            {
+                "name": "Partner shipping test",
+                "parent_id": cls.partner.id,
+                "type": "delivery",
+            }
+        )
+        cls.finalization_reason_1 = cls.env["rma.finalization"].create(
+            {"name": "[Test] It can't be repaired and customer doesn't want it"}
+        )
+        cls.finalization_reason_2 = cls.env["rma.finalization"].create(
+            {"name": "[Test] It's out of warranty. To be scrapped"}
+        )
+        cls.env.ref("rma.group_rma_manual_finalization").users |= cls.env.user
 
     def _create_rma(self, partner=None, product=None, qty=None, location=None):
         rma_form = Form(self.env["rma"])
@@ -117,6 +135,8 @@ class TestRma(SavepointCase):
         picking.button_validate()
         return picking
 
+
+class TestRmaCase(TestRma):
     def test_onchange(self):
         rma_form = Form(self.env["rma"])
         # If partner changes, the invoice address is set
@@ -181,7 +201,8 @@ class TestRma(SavepointCase):
             rma.action_confirm()
         self.assertEqual(
             e.exception.name,
-            "Required field(s):\nCustomer\nInvoice Address\nProduct\nLocation",
+            "Required field(s):\nCustomer\nShipping Address\nInvoice Address\n"
+            "Product\nLocation",
         )
         with Form(rma) as rma_form:
             rma_form.partner_id = self.partner
@@ -246,6 +267,7 @@ class TestRma(SavepointCase):
         self.assertEqual(rma_1.state, "draft")
         self.assertEqual(rma_2.state, "received")
 
+    @users("__system__", "user_rma")
     def test_action_refund(self):
         rma = self._create_confirm_receive(self.partner, self.product, 10, self.rma_loc)
         self.assertEqual(rma.state, "received")
@@ -262,6 +284,10 @@ class TestRma(SavepointCase):
         self.assertFalse(rma.can_be_refunded)
         self.assertFalse(rma.can_be_returned)
         self.assertFalse(rma.can_be_replaced)
+        # A regular user can create the refund but only Invoicing users will be able
+        # to edit it and post it
+        if self.env.user.login != "__system__":
+            return
         with Form(rma.refund_line_id.move_id) as refund_form:
             with refund_form.invoice_line_ids.edit(0) as refund_line:
                 refund_line.quantity = 9
@@ -492,6 +518,21 @@ class TestRma(SavepointCase):
         self.assertFalse(rma.can_be_replaced)
         self._test_readonly_fields(rma)
 
+    def test_finish_rma(self):
+        # Create, confirm and receive an RMA
+        rma = self._create_confirm_receive(self.partner, self.product, 10, self.rma_loc)
+        rma.action_finish()
+        finalization_form = Form(
+            self.env["rma.finalization.wizard"].with_context(
+                active_ids=rma.ids, rma_finalization_type="replace",
+            )
+        )
+        finalization_form.finalization_id = self.finalization_reason_2
+        finalization_wizard = finalization_form.save()
+        finalization_wizard.action_finish()
+        self.assertEqual(rma.state, "finished")
+        self.assertEqual(rma.finalization_id, self.finalization_reason_2)
+
     def test_mass_return_to_customer(self):
         # Create, confirm and receive rma_1
         rma_1 = self._create_confirm_receive(
@@ -531,7 +572,7 @@ class TestRma(SavepointCase):
         # One picking per partner
         self.assertNotEqual(pick_1.partner_id, pick_2.partner_id)
         self.assertEqual(
-            pick_1.partner_id, (rma_1 | rma_2 | rma_3).mapped("partner_id"),
+            pick_1.partner_id, (rma_1 | rma_2 | rma_3).mapped("partner_shipping_id"),
         )
         self.assertEqual(pick_2.partner_id, rma_4.partner_id)
         # Each RMA of (rma_1, rma_2 and rma_3) is linked to a different
@@ -560,12 +601,15 @@ class TestRma(SavepointCase):
     def test_rma_from_picking_return(self):
         # Create a return from a delivery picking
         origin_delivery = self._create_delivery()
-        return_wizard = (
-            self.env["stock.return.picking"]
-            .with_context(active_id=origin_delivery.id, active_ids=origin_delivery.ids,)
-            .create({"create_rma": True, "picking_id": origin_delivery.id})
+        stock_return_picking_form = Form(
+            self.env["stock.return.picking"].with_context(
+                active_ids=origin_delivery.ids,
+                active_id=origin_delivery.id,
+                active_model="stock.picking",
+            )
         )
-        return_wizard._onchange_picking_id()
+        stock_return_picking_form.create_rma = True
+        return_wizard = stock_return_picking_form.save()
         picking_action = return_wizard.create_returns()
         # Each origin move is linked to a different RMA
         origin_moves = origin_delivery.move_lines
@@ -656,3 +700,52 @@ class TestRma(SavepointCase):
     def test_quantities_on_hand(self):
         rma = self._create_confirm_receive(self.partner, self.product, 10, self.rma_loc)
         self.assertEqual(rma.product_id.qty_available, 0)
+
+    def test_autoconfirm_email(self):
+        self.company.send_rma_confirmation = True
+        self.company.send_rma_receipt_confirmation = True
+        self.company.send_rma_draft_confirmation = True
+        self.company.rma_mail_confirmation_template_id = self.env.ref(
+            "rma.mail_template_rma_notification"
+        )
+        self.company.rma_mail_receipt_confirmation_template_id = self.env.ref(
+            "rma.mail_template_rma_receipt_notification"
+        )
+        self.company.rma_mail_draft_confirmation_template_id = self.env.ref(
+            "rma.mail_template_rma_draft_notification"
+        )
+        previous_mails = self.env["mail.mail"].search(
+            [("partner_ids", "in", self.partner.ids)]
+        )
+        self.assertFalse(previous_mails)
+        # Force the context to mock an RMA created from the portal, which is
+        # feature that we get on `rma_sale`. We drop it after the RMA creation
+        # to avoid uncontrolled side effects
+        ctx = self.env.context
+        self.env.context = dict(ctx, from_portal=True)
+        rma = self._create_rma(self.partner, self.product, 10, self.rma_loc)
+        self.env.context = ctx
+        mail_draft = self.env["mail.message"].search(
+            [("partner_ids", "in", self.partner.ids)]
+        )
+        rma.action_confirm()
+        mail_confirm = (
+            self.env["mail.message"].search([("partner_ids", "in", self.partner.ids)])
+            - mail_draft
+        )
+        self.assertTrue(rma.name in mail_confirm.subject)
+        self.assertTrue(rma.name in mail_confirm.body)
+        self.assertEqual(
+            self.env.ref("rma.mt_rma_notification"), mail_confirm.subtype_id
+        )
+        # Now we'll confirm the incoming goods picking and the automatic
+        # reception notification should be sent
+        rma.reception_move_id.quantity_done = rma.product_uom_qty
+        rma.reception_move_id.picking_id.button_validate()
+        mail_receipt = (
+            self.env["mail.message"].search([("partner_ids", "in", self.partner.ids)])
+            - mail_draft
+            - mail_confirm
+        )
+        self.assertTrue(rma.name in mail_receipt.subject)
+        self.assertTrue("products received" in mail_receipt.subject)

@@ -59,7 +59,7 @@ class StockMove(models.Model):
                     )
                     % (move.product_id.name, move.rma_receiver_ids.name)
                 )
-        res = super()._action_done()
+        res = super()._action_done(cancel_backorder=cancel_backorder)
         move_done = self.filtered(lambda r: r.state == "done").sudo()
         # Set RMAs as received. We sudo so we can grant the operation even
         # if the stock user has no RMA permissions.
@@ -68,7 +68,7 @@ class StockMove(models.Model):
             .mapped("rma_receiver_ids")
             .filtered(lambda r: r.state == "confirmed")
         )
-        to_be_received.write({"state": "received"})
+        to_be_received.update_received_state_on_reception()
         # Set RMAs as delivered
         move_done.mapped("rma_id").update_replaced_state()
         move_done.mapped("rma_id").update_returned_state()
@@ -96,13 +96,16 @@ class StockMove(models.Model):
         partner = original_picking.partner_id
         if hasattr(original_picking, "sale_id") and original_picking.sale_id:
             partner_invoice_id = original_picking.sale_id.partner_invoice_id.id
+            partner_shipping_id = original_picking.sale_id.partner_shipping_id.id
         else:
-            partner_invoice_id = (
-                partner.address_get(["invoice"]).get("invoice", False),
+            partner_invoice_id = partner.address_get(["invoice"]).get("invoice", False)
+            partner_shipping_id = partner.address_get(["delivery"]).get(
+                "delivery", False
             )
         return {
             "user_id": self.env.user.id,
             "partner_id": partner.id,
+            "partner_shipping_id": partner_shipping_id,
             "partner_invoice_id": partner_invoice_id,
             "origin": original_picking.name,
             "picking_id": original_picking.id,
