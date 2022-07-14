@@ -623,6 +623,10 @@ class Rma(models.Model):
             "context": ctx,
         }
 
+    def _add_message_subscribe_partner(self):
+        if self.partner_id and self.partner_id not in self.message_partner_ids:
+            self.message_subscribe([self.partner_id.id])
+
     def action_confirm(self):
         """Invoked when 'Confirm' button in rma form view is clicked."""
         self.ensure_one()
@@ -633,8 +637,7 @@ class Rma(models.Model):
             else:
                 reception_move = self._create_receptions_from_product()
             self.write({"reception_move_id": reception_move.id, "state": "confirmed"})
-            if self.partner_id not in self.message_partner_ids:
-                self.message_subscribe([self.partner_id.id])
+            self._add_message_subscribe_partner()
             self._send_confirmation_email()
 
     def action_refund(self):
@@ -649,7 +652,9 @@ class Rma(models.Model):
         for rmas in group_dict.values():
             origin = ", ".join(rmas.mapped("name"))
             invoice_form = Form(
-                self.env["account.move"].with_context(
+                self.env["account.move"]
+                .sudo()
+                .with_context(
                     default_move_type="out_refund",
                     company_id=rmas[0].company_id.id,
                 ),
@@ -676,7 +681,7 @@ class Rma(models.Model):
                     }
                 )
             refund.invoice_origin = origin
-            refund.message_post_with_view(
+            refund.with_user(self.env.uid).message_post_with_view(
                 "mail.message_origin_link",
                 values={"self": refund, "origin": rmas},
                 subtype_id=self.env.ref("mail.mt_note").id,
@@ -1046,6 +1051,8 @@ class Rma(models.Model):
         """
         self.ensure_one()
         invoice_form.partner_id = self.partner_invoice_id
+        # Avoid set partner default value
+        invoice_form.invoice_payment_term_id = self.env["account.payment.term"]
 
     def _prepare_refund_line(self, line_form):
         """Hook method for preparing a refund line Form.
@@ -1086,6 +1093,9 @@ class Rma(models.Model):
     # Returning business methods
     def create_return(self, scheduled_date, qty=None, uom=None):
         """Intended to be invoked by the delivery wizard"""
+        group_returns = self.env.company.rma_return_grouping
+        if "rma_return_grouping" in self.env.context:
+            group_returns = self.env.context.get("rma_return_grouping")
         self._ensure_can_be_returned()
         self._ensure_qty_to_return(qty, uom)
         group_dict = {}
@@ -1098,7 +1108,11 @@ class Rma(models.Model):
             )
             group_dict.setdefault(key, self.env["rma"])
             group_dict[key] |= record
-        for rmas in group_dict.values():
+        if group_returns:
+            grouped_rmas = group_dict.values()
+        else:
+            grouped_rmas = rmas_to_return
+        for rmas in grouped_rmas:
             origin = ", ".join(rmas.mapped("name"))
             rma_out_type = rmas[0].warehouse_id.rma_out_type_id
             picking_form = Form(
@@ -1164,7 +1178,6 @@ class Rma(models.Model):
         self._action_launch_stock_rule(scheduled_date, warehouse, product, qty, uom)
         new_move = self.delivery_move_ids - moves_before
         if new_move:
-            self.reception_move_id.move_dest_ids = [(4, new_move.id)]
             self.message_post(
                 body=_(
                     "Replacement: "
