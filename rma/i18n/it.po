@@ -6,8 +6,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Odoo Server 14.0\n"
 "Report-Msgid-Bugs-To: \n"
-"PO-Revision-Date: 2023-02-01 16:48+0000\n"
-"Last-Translator: Francesco Foresti <francesco.foresti@ooops404.com>\n"
+"PO-Revision-Date: 2023-04-17 14:35+0000\n"
+"Last-Translator: mymage <stefano.consolaro@mymage.it>\n"
 "Language-Team: none\n"
 "Language: it\n"
 "MIME-Version: 1.0\n"
@@ -1008,7 +1008,7 @@ msgstr "Indirizzo di fatturazione e spedizione:"
 #: model:ir.model.fields,field_description:rma.field_rma__message_is_follower
 #: model:ir.model.fields,field_description:rma.field_rma_team__message_is_follower
 msgid "Is Follower"
-msgstr "E' un follower"
+msgstr "Sta seguendo"
 
 #. module: rma
 #: model:ir.model,name:rma.model_account_move
@@ -1091,7 +1091,7 @@ msgstr "Bloccato"
 #: model:ir.model.fields,field_description:rma.field_rma__message_main_attachment_id
 #: model:ir.model.fields,field_description:rma.field_rma_team__message_main_attachment_id
 msgid "Main Attachment"
-msgstr "Allegato Principale"
+msgstr "Allegato principale"
 
 #. module: rma
 #: model_terms:ir.actions.act_window,help:rma.action_rma_finalization
@@ -1124,7 +1124,7 @@ msgstr "Responsabile"
 #: model:ir.model.fields,field_description:rma.field_rma__message_has_error
 #: model:ir.model.fields,field_description:rma.field_rma_team__message_has_error
 msgid "Message Delivery error"
-msgstr "Messaggio di Errore Consegna"
+msgstr "Errore consegna messaggio"
 
 #. module: rma
 #: model:ir.model.fields,field_description:rma.field_rma__message_ids
@@ -1188,13 +1188,13 @@ msgstr "Normale"
 #: model:ir.model.fields,field_description:rma.field_rma__message_needaction_counter
 #: model:ir.model.fields,field_description:rma.field_rma_team__message_needaction_counter
 msgid "Number of Actions"
-msgstr "Numero di Azioni"
+msgstr "Numero di azioni"
 
 #. module: rma
 #: model:ir.model.fields,field_description:rma.field_rma__message_has_error_counter
 #: model:ir.model.fields,field_description:rma.field_rma_team__message_has_error_counter
 msgid "Number of errors"
-msgstr "Numero di Errore"
+msgstr "Numero di errori"
 
 #. module: rma
 #: model:ir.model.fields,help:rma.field_rma__message_needaction_counter
@@ -1776,7 +1776,7 @@ msgstr "Errore consegna SMS"
 #. module: rma
 #: model:ir.model.fields,field_description:rma.field_rma_delivery_wizard__scheduled_date
 msgid "Scheduled Date"
-msgstr "Data Prevista"
+msgstr "Data programmata"
 
 #. module: rma
 #: model:ir.model.fields,field_description:rma.field_rma__access_token
@@ -1916,10 +1916,10 @@ msgid ""
 "Today: Activity date is today\n"
 "Planned: Future activities."
 msgstr ""
-"Stati in base alle attività\n"
-"Scaduti: la data richiesta è trascorsa\n"
+"Stato in base alle attività\n"
+"Scaduto: la data richiesta è trascorsa\n"
 "Oggi: la data attività è oggi\n"
-"Pianificate: attività future."
+"Pianificato: attività future."
 
 #. module: rma
 #: model:ir.model,name:rma.model_stock_move
@@ -1934,12 +1934,12 @@ msgstr "Regola di Magazzino"
 #. module: rma
 #: model:ir.model.fields,field_description:rma.field_rma_tag__name
 msgid "Tag Name"
-msgstr "Nome Etichetta"
+msgstr "Nome etichetta"
 
 #. module: rma
 #: model:ir.model.constraint,message:rma.constraint_rma_tag_name_uniq
 msgid "Tag name already exists !"
-msgstr "Nome Etichetta già Esiste!"
+msgstr "Il nome etichetta esiste già!"
 
 #. module: rma
 #: model:ir.model.fields,field_description:rma.field_rma__tag_ids

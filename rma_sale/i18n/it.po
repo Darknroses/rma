@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Odoo Server 14.0\n"
 "Report-Msgid-Bugs-To: \n"
-"PO-Revision-Date: 2023-02-01 16:48+0000\n"
+"PO-Revision-Date: 2023-04-07 18:28+0000\n"
 "Last-Translator: Francesco Foresti <francesco.foresti@ooops404.com>\n"
 "Language-Team: none\n"
 "Language: it\n"
@@ -102,7 +102,7 @@ msgstr "<strong>Ordine di vendita</strong>"
 #. module: rma_sale
 #: model_terms:ir.ui.view,arch_db:rma_sale.sale_order_rma_wizard_form_view
 msgid "Accept"
-msgstr "Accettare"
+msgstr "Accetta"
 
 #. module: rma_sale
 #: model:ir.model.fields,field_description:rma_sale.field_rma__allowed_move_ids
@@ -134,7 +134,7 @@ msgstr "Categoria"
 #. module: rma_sale
 #: model_terms:ir.ui.view,arch_db:rma_sale.sale_rma_request_form
 msgid "Close"
-msgstr "Chiudere"
+msgstr "Chiudi"
 
 #. module: rma_sale
 #: model_terms:ir.ui.view,arch_db:rma_sale.sale_rma_request_form
